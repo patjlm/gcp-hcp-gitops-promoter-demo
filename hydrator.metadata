@@ -1,0 +1,7 @@
+{
+  "drySha": "2fa290a3a70f08a41b9be4cde943bccaca8e3bb8",
+  "repoURL": "https://github.com/patjlm/gcp-hcp-gitops-promoter-demo",
+  "author": "patmarti@redhat.com",
+  "date": "2026-05-28T13:12:58+02:00",
+  "subject": "refactor: replace static kustomization.yaml with dynamic in-place generation"
+}
