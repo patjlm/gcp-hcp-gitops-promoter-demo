@@ -119,7 +119,7 @@ jobs:
             # Build ArgoCD rendered output per cluster type per region
             for CLUSTER_TYPE in $CLUSTER_TYPES; do
               for REGION in "${REGIONS[@]}"; do
-                CHART_DIR="${OUTPUT_DIR}/argocd/rendered/${CLUSTER_TYPE}/${REGION}"
+                CHART_DIR="${OUTPUT_DIR}/argocd/rendered/${CLUSTER_TYPE}/${ENV}/${SECTOR}/${REGION}"
                 TMPL_DIR="${CHART_DIR}/templates"
                 mkdir -p "$TMPL_DIR"
 
