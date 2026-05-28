@@ -1,0 +1,7 @@
+{
+  "drySha": "158887c680e9519a10b0eb93a8bd5a8b09fe1f74",
+  "repoURL": "https://github.com/patjlm/gcp-hcp-gitops-promoter-demo",
+  "author": "patmarti@redhat.com",
+  "date": "2026-05-28T13:34:56+02:00",
+  "subject": "fix: add env/sector subfolders to argocd/rendered path, fix terraform glob depth"
+}
