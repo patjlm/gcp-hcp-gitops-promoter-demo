@@ -81,29 +81,26 @@ Promotion is **declarative** and **auditable** — every promotion is a merged P
 
 # How It Works
 
-```
-main (DRY)
-  │
-  └─► hydrate.yaml ─────────────────────────────────────────────────────────►
-        │                                                                      │
-        ▼ (push all 5 simultaneously)                                          │
-  env/integration/main-next ──► PR ──[ci-check ✓]──► env/integration/main    │
-                                                            │                  │
-                                                [ci-check ✓ · deploy ✓]       │
-                                                            ▼                  │
-  env/stage/main-next        ──► PR ──[ci-check ✓]──► env/stage/main         │
-                                                            │                  │
-                                               [ci-check ✓ · deploy ✓ · ⏱2m] │
-                                                            ▼                  │
-  env/production/prod-1-next ──► PR ──[ci-check ✓]──► env/production/prod-1  │
-                                         MANUAL                │               │
-                                                   [ci-check ✓ · deploy ✓]    │
-                                                               ▼               │
-  env/production/prod-2-next ──► PR ──[ci-check ✓]──► env/production/prod-2  │
-  env/production/prod-3-next ──► PR ──[ci-check ✓]──► env/production/prod-3 ◄┘
-```
+- `main` (DRY source) → **hydrate** → 5 proposed branches (`env/X-next`) pushed simultaneously
+- gitops-promoter opens a **PR** for each proposed branch → active branch
+- **Proposed** commit statuses (e.g. `ci-check`) gate whether the PR can merge
+- Once merged, **active** commit statuses (e.g. `deploy`, `timer`) gate the *next* environment's PR
 
-**Proposed** commit statuses gate PR merge · **Active** commit statuses gate the *next* environment
+```
+main ──► hydrate ──► int/main-next   ──► PR ──► env/integration/main
+                                                 │ ci-check ✓  deploy ✓
+                                                 ▼
+                 ──► stage/main-next ──► PR ──► env/stage/main
+                                                 │ ci-check ✓  deploy ✓  ⏱ 2m
+                                                 ▼
+                 ──► prod-1-next     ──► PR ──► env/production/prod-1   (MANUAL)
+                                                 │ ci-check ✓  deploy ✓
+                                                 ▼
+                 ──► prod-2-next     ──► PR ──► env/production/prod-2
+                                                 │ ci-check ✓  deploy ✓
+                                                 ▼
+                 ──► prod-3-next     ──► PR ──► env/production/prod-3
+```
 
 ---
 
