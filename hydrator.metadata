@@ -1,7 +1,7 @@
 {
-  "drySha": "2fa290a3a70f08a41b9be4cde943bccaca8e3bb8",
+  "drySha": "158887c680e9519a10b0eb93a8bd5a8b09fe1f74",
   "repoURL": "https://github.com/patjlm/gcp-hcp-gitops-promoter-demo",
   "author": "patmarti@redhat.com",
-  "date": "2026-05-28T13:12:58+02:00",
-  "subject": "refactor: replace static kustomization.yaml with dynamic in-place generation"
+  "date": "2026-05-28T13:34:56+02:00",
+  "subject": "fix: add env/sector subfolders to argocd/rendered path, fix terraform glob depth"
 }
