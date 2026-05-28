@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  name: maestro-server
+  namespace: argocd
+spec:
+  destination:
+    namespace: maestro
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    helm:
+      valuesObject:
+        db:
+          isEmbedded: false
+        environment: production
+        gcp:
+          projectId: '{{ .Values.project_id }}'
+          region: '{{ .Values.region }}'
+        mqtt:
+          enabled: false
+        serviceAccount:
+          annotations:
+            iam.gke.io/gcp-service-account: maestro@{{ .Values.project_id }}.iam.gserviceaccount.com
+    path: charts/maestro-server
+    repoURL: https://github.com/openshift-online/maestro
+    targetRevision: v0.5.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
