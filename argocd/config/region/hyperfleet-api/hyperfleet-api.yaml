@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hyperfleet-api
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/openshift-hyperfleet/hyperfleet-api
+    targetRevision: v0.2.1
+    path: charts
+    helm:
+      valuesObject:
+        image:
+          tag: v0.2.1
+        auth:
+          jwt:
+            enabled: false
+        postgresql:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hyperfleet
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

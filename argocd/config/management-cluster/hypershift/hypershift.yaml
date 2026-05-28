@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hypershift
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+spec:
+  project: default
+  source:
+    repoURL: '{{ .Values.git_repo }}'
+    targetRevision: '{{ .Values.git_revision }}'
+    path: kustomize/hypershift
+    kustomize:
+      patches:
+        - patch: |
+            - op: add
+              path: /spec/template/spec/containers/0/env/-
+              value:
+                name: GCP_PROJECT
+                value: '{{ .Values.project_id }}'
+            - op: add
+              path: /spec/template/spec/containers/0/env/-
+              value:
+                name: GCP_REGION
+                value: '{{ .Values.region }}'
+          target:
+            kind: Deployment
+            name: operator
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hypershift
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jsonPointers:
+        - /status

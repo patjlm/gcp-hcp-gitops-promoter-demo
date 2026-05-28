@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hyperfleet-nodepool-sentinel
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/openshift-hyperfleet/hyperfleet-sentinel
+    targetRevision: v0.2.1
+    path: charts
+    helm:
+      valuesObject:
+        resourceType: nodepools
+        projectId: '{{ .Values.project_id }}'
+        pubsub:
+          topic: hyperfleet-nodepool-events
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hyperfleet
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

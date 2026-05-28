@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Installs the gitops-promoter operator.
+# Requires install.yaml to exist (downloaded from release or built locally).
+# See setup.sh for how to obtain it.
+
+resources:
+  - install.yaml
+  - dashboard.yaml
+
+images:
+  - name: quay.io/argoprojlabs/gitops-promoter
+    newName: quay.io/patmarti/gitops-promoter
+    newTag: gitops-promoter-activepath
+
+patches:
+  - target:
+      kind: Deployment
+      name: promoter-controller-manager
+      namespace: promoter-system
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: promoter-controller-manager
+        namespace: promoter-system
+      spec:
+        template:
+          spec:
+            containers:
+              - name: manager
+                resources:
+                  requests:
+                    memory: 256Mi
+                  limits:
+                    memory: 512Mi

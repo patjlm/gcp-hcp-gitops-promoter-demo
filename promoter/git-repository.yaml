@@ -1,0 +1,11 @@
+apiVersion: promoter.argoproj.io/v1alpha1
+kind: GitRepository
+metadata:
+  name: gcp-hcp-gitops-promoter-demo
+  namespace: promoter-system
+spec:
+  github:
+    owner: patjlm
+    name: gcp-hcp-gitops-promoter-demo
+  scmProviderRef:
+    name: github

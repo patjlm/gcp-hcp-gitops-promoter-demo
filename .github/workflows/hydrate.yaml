@@ -1,0 +1,195 @@
+name: Hydrate
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should-hydrate: ${{ steps.changes.outputs.should-hydrate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: changes
+        run: |
+          changed=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "all")
+          if echo "$changed" | grep -qE "^(argocd/|terraform/|\.github/workflows/)"; then
+            echo "should-hydrate=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$changed" == "all" ]]; then
+            echo "should-hydrate=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should-hydrate=false" >> "$GITHUB_OUTPUT"
+            echo "No relevant changes detected, skipping hydration."
+          fi
+
+  hydrate:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.should-hydrate == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Hydrate all sectors
+        run: |
+          set -euo pipefail
+
+          DRY_SHA=$(git rev-parse HEAD)
+          AUTHOR=$(git log -1 --format='%ae')
+          SUBJECT=$(git log -1 --format='%s')
+          DATE=$(git log -1 --format='%aI')
+
+          CLUSTER_TYPES="region management-cluster"
+
+          # Sector configuration: "env/sector region1 [region2 ...]"
+          SECTOR_CONFIG=(
+            "integration/main us-central1"
+            "stage/main us-central1"
+            "production/prod-1 us-central1"
+            "production/prod-2 us-central1 europe-west1"
+            "production/prod-3 us-central1"
+          )
+
+          # Find the most specific kustomization dir for an app/env/sector/region combination
+          find_kust_dir() {
+            local cluster_type=$1 app=$2 env=$3 sector=$4 region=$5
+            local base="argocd/config/${cluster_type}/${app}"
+            for candidate in \
+              "${base}/${env}/${sector}/${region}" \
+              "${base}/${env}/${sector}" \
+              "${base}/${env}" \
+              "${base}"; do
+              if [[ -f "${candidate}/kustomization.yaml" ]]; then
+                echo "$candidate"
+                return
+              fi
+            done
+            echo "ERROR: no kustomization.yaml found for ${cluster_type}/${app}" >&2
+            return 1
+          }
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          for entry in "${SECTOR_CONFIG[@]}"; do
+            read -ra parts <<< "$entry"
+            ENV_SECTOR="${parts[0]}"
+            REGIONS=("${parts[@]:1}")
+            ENV="${ENV_SECTOR%%/*}"
+            SECTOR="${ENV_SECTOR##*/}"
+
+            ACTIVE_BRANCH="environment/${ENV_SECTOR}"
+            PROPOSED_BRANCH="${ACTIVE_BRANCH}-next"
+
+            echo ""
+            echo "=== Hydrating sector: ${ENV_SECTOR} (regions: ${REGIONS[*]}) ==="
+
+            OUTPUT_DIR=$(mktemp -d)
+
+            # Build ArgoCD rendered output per cluster type per region
+            for CLUSTER_TYPE in $CLUSTER_TYPES; do
+              for REGION in "${REGIONS[@]}"; do
+                CHART_DIR="${OUTPUT_DIR}/argocd/rendered/${CLUSTER_TYPE}/${REGION}"
+                TMPL_DIR="${CHART_DIR}/templates"
+                mkdir -p "$TMPL_DIR"
+
+                echo "  Building ${CLUSTER_TYPE}/${REGION}..."
+                for APP_DIR in argocd/config/${CLUSTER_TYPE}/*/; do
+                  APP=$(basename "$APP_DIR")
+                  # Skip non-app entries (values.yaml is a file, not a dir)
+                  [[ -f "${APP_DIR}/kustomization.yaml" ]] || continue
+
+                  KUST_DIR=$(find_kust_dir "$CLUSTER_TYPE" "$APP" "$ENV" "$SECTOR" "$REGION")
+                  echo "    kustomize build ${KUST_DIR} → templates/${APP}.yaml"
+                  kustomize build "${KUST_DIR}" > "${TMPL_DIR}/${APP}.yaml"
+                done
+
+                # Generate Chart.yaml
+                cat > "${CHART_DIR}/Chart.yaml" <<EOF
+          apiVersion: v2
+          name: ${CLUSTER_TYPE}-${REGION}
+          description: ArgoCD applications for ${CLUSTER_TYPE} in ${ENV}/${SECTOR}/${REGION}
+          type: application
+          version: 0.1.0
+          EOF
+
+                # Copy values.yaml
+                cp "argocd/config/${CLUSTER_TYPE}/values.yaml" "${CHART_DIR}/values.yaml"
+              done
+            done
+
+            # Copy terraform module and sector-specific configs.
+            # Preserve the env/sector directory depth so the relative module path
+            # "../../../../modules/platform" in main.tf remains correct.
+            echo "  Copying terraform..."
+            mkdir -p "${OUTPUT_DIR}/terraform"
+            cp -r terraform/modules "${OUTPUT_DIR}/terraform/"
+            mkdir -p "${OUTPUT_DIR}/terraform/config/${ENV}/${SECTOR}"
+            for REGION in "${REGIONS[@]}"; do
+              if [[ -d "terraform/config/${ENV}/${SECTOR}/${REGION}" ]]; then
+                cp -r "terraform/config/${ENV}/${SECTOR}/${REGION}" \
+                   "${OUTPUT_DIR}/terraform/config/${ENV}/${SECTOR}/${REGION}"
+              fi
+            done
+
+            # Write hydrator.metadata
+            cat > "${OUTPUT_DIR}/hydrator.metadata" <<EOF
+          {
+            "drySha": "${DRY_SHA}",
+            "repoURL": "${{ github.server_url }}/${{ github.repository }}",
+            "author": "${AUTHOR}",
+            "date": "${DATE}",
+            "subject": "${SUBJECT}"
+          }
+          EOF
+
+            # Save workflow files before switching branches
+            cp .github/workflows/ci-checks.yaml "${OUTPUT_DIR}/ci-checks.yaml"
+            cp .github/workflows/deploy.yaml "${OUTPUT_DIR}/deploy.yaml"
+
+            # Switch to the proposed branch
+            if git ls-remote --exit-code origin "${PROPOSED_BRANCH}" > /dev/null 2>&1; then
+              git fetch origin "${PROPOSED_BRANCH}"
+              git checkout "${PROPOSED_BRANCH}"
+            elif git ls-remote --exit-code origin "${ACTIVE_BRANCH}" > /dev/null 2>&1; then
+              git fetch origin "${ACTIVE_BRANCH}"
+              git checkout -b "${PROPOSED_BRANCH}" "origin/${ACTIVE_BRANCH}"
+            else
+              git checkout --orphan "${PROPOSED_BRANCH}"
+              git rm -rf . > /dev/null 2>&1 || true
+            fi
+
+            # Replace branch content with hydrated output
+            git rm -rf . > /dev/null 2>&1 || true
+            cp -r "${OUTPUT_DIR}/argocd" .
+            cp -r "${OUTPUT_DIR}/terraform" .
+            cp "${OUTPUT_DIR}/hydrator.metadata" .
+            mkdir -p .github/workflows
+            cp "${OUTPUT_DIR}/ci-checks.yaml" .github/workflows/
+            cp "${OUTPUT_DIR}/deploy.yaml" .github/workflows/
+
+            git add .
+            if git diff --cached --quiet; then
+              echo "  No changes for ${ENV_SECTOR}, skipping push."
+              git checkout main
+              rm -rf "${OUTPUT_DIR}"
+              continue
+            fi
+
+            git commit -m "hydrate ${ENV_SECTOR} from ${DRY_SHA}"
+            git push origin "${PROPOSED_BRANCH}"
+            git checkout main
+
+            rm -rf "${OUTPUT_DIR}"
+            echo "  Pushed to ${PROPOSED_BRANCH}"
+          done

@@ -1,0 +1,11 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hypershift
+  namespace: argocd
+spec:
+  source:
+    kustomize:
+      # Integration environments pin component images to validated builds.
+      # Real example: 'registry.redhat.io/openshift4/ose-external-dns-rhel9=quay.io/example/external-dns:v0.1.0'
+      images: []

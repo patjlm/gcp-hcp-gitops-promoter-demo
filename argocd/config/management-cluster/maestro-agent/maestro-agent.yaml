@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: maestro-agent
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/openshift-online/maestro
+    targetRevision: v0.5.0
+    path: charts/maestro-agent
+    helm:
+      valuesObject:
+        consumerName: '{{ .Values.project_id }}'
+        gcp:
+          projectId: '{{ .Values.region_project_id }}'
+          region: '{{ .Values.region }}'
+        serviceAccount:
+          annotations:
+            iam.gke.io/gcp-service-account: 'maestro-agent-{{ .Values.infra_id }}@{{ .Values.region_project_id }}.iam.gserviceaccount.com'
+        pubsub:
+          agentEventsSubscription: 'sourceevents-{{ .Values.project_id }}'
+          agentBroadcastSubscription: 'sourcebroadcast-{{ .Values.project_id }}'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: maestro
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  ignoreDifferences:
+    - group: work.open-cluster-management.io
+      kind: AppliedManifestWork
+      jsonPointers:
+        - /metadata/finalizers

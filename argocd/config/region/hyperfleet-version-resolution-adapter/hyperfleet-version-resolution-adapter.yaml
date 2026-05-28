@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hyperfleet-version-resolution-adapter
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: '{{ .Values.git_repo }}'
+    targetRevision: '{{ .Values.git_revision }}'
+    path: helm/charts/hyperfleet-version-resolution-adapter
+    helm:
+      valuesObject:
+        projectId: '{{ .Values.project_id }}'
+        region: '{{ .Values.region }}'
+        serviceAccount:
+          annotations:
+            iam.gke.io/gcp-service-account: 'version-resolution-adapter@{{ .Values.project_id }}.iam.gserviceaccount.com'
+        pubsub:
+          subscription: hyperfleet-cluster-events-version-resolution-adapter
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hyperfleet
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

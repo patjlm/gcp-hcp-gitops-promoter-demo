@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Overlay: adds image override for the integration environment.
+# Mirrors the real gcp-hcp-infra/argocd/config/management-cluster/hypershift/integration/override.yaml pattern.
+resources:
+  - ..
+patches:
+  - path: hypershift-patch.yaml
+    target:
+      kind: Application
+      name: hypershift

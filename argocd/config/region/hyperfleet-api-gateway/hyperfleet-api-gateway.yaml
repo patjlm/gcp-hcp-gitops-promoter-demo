@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hyperfleet-api-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: '{{ .Values.git_repo }}'
+    targetRevision: '{{ .Values.git_revision }}'
+    path: helm/charts/hyperfleet-api-gateway
+    helm:
+      valuesObject:
+        projectId: '{{ .Values.project_id }}'
+        region: '{{ .Values.region }}'
+        infraId: '{{ .Values.infra_id }}'
+        shortenv: '{{ .Values.shortenv }}'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hyperfleet
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

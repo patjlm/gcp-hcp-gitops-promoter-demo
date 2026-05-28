@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  project: default
+  source:
+    chart: external-dns
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    targetRevision: 1.15.0
+    helm:
+      valuesObject:
+        provider: google
+        policy: sync
+        serviceAccount:
+          annotations:
+            iam.gke.io/gcp-service-account: 'external-dns@{{ .Values.project_id }}.iam.gserviceaccount.com'
+        domainFilters:
+          - '{{ .Values.shortenv }}.gcp-hcp.example.com'
+        sources:
+          - ingress
+          - service
+          - gateway-httproute
+        txtOwnerId: '{{ .Values.project_id }}'
+        extraArgs:
+          - '--google-project={{ .Values.global_project_id }}'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

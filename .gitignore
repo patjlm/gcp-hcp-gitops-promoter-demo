@@ -1,0 +1,9 @@
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+.idea/
+.vscode/
+promoter/config.local.env
+promoter/install.yaml
+promoter/.build/

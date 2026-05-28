@@ -1,0 +1,12 @@
+apiVersion: promoter.argoproj.io/v1alpha1
+kind: TimedCommitStatus
+metadata:
+  name: soak-timer
+  namespace: promoter-system
+spec:
+  key: timer
+  promotionStrategyRef:
+    name: gcp-hcp-demo
+  environments:
+    - branch: environment/stage/main
+      duration: 2m

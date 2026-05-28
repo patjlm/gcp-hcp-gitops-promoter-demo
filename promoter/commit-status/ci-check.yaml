@@ -1,0 +1,29 @@
+apiVersion: promoter.argoproj.io/v1alpha1
+kind: WebRequestCommitStatus
+metadata:
+  name: ci-check
+  namespace: promoter-system
+spec:
+  promotionStrategyRef:
+    name: gcp-hcp-demo
+  key: ci-check
+  descriptionTemplate: >-
+    {{ if eq .Phase "success" }}CI checks passed{{ else }}Waiting for CI checks{{ end }}
+  urlTemplate: ""
+  reportOn: active
+  httpRequest:
+    urlTemplate: "https://api.github.com/repos/patjlm/gcp-hcp-gitops-promoter-demo/commits/{{ range .PromotionStrategy.Status.Environments }}{{ if eq .Branch $.Branch }}{{ .Active.Hydrated.Sha }}{{ end }}{{ end }}/status"
+    method: GET
+    headerTemplates:
+      Accept: application/vnd.github+json
+    timeout: 10s
+    authentication:
+      scm: {}
+  success:
+    when:
+      expression: >-
+        Response != nil ? Response.Body.statuses.exists(s, s.context == "ci-check" && s.state == "success") : Phase == "success"
+  mode:
+    context: environments
+    polling:
+      interval: 1m

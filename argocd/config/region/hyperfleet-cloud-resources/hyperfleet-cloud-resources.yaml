@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hyperfleet-cloud-resources
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+spec:
+  project: default
+  source:
+    repoURL: '{{ .Values.git_repo }}'
+    targetRevision: '{{ .Values.git_revision }}'
+    path: helm/charts/hyperfleet-cloud-resources
+    helm:
+      valuesObject:
+        projectId: '{{ .Values.project_id }}'
+        region: '{{ .Values.region }}'
+        pubsub:
+          topics:
+            - hyperfleet-cluster-events
+            - hyperfleet-nodepool-events
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hyperfleet
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
