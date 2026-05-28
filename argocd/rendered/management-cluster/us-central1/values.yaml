@@ -1,0 +1,14 @@
+# Values template for management-cluster applications.
+# These values are injected at deploy time via the root ApplicationSet,
+# sourcing from Terraform outputs stored in Secret Manager (via External Secrets).
+environment: ""
+shortenv: ""
+sector: ""
+region: ""
+global_project_id: ""
+region_project_id: ""
+project_id: ""
+infra_id: ""
+git_repo: ""
+git_revision: ""
+workload_pool: ""

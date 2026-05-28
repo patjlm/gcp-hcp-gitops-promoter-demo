@@ -1,0 +1,5 @@
+apiVersion: v2
+name: region-us-central1
+description: ArgoCD applications for region in production/prod-1/us-central1
+type: application
+version: 0.1.0
