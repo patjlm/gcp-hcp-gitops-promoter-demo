@@ -9,12 +9,12 @@ spec:
   project: default
   source:
     repoURL: https://github.com/openshift-hyperfleet/hyperfleet-api
-    targetRevision: v0.2.1
+    targetRevision: b8e4d96f0aa1234567890abcdef123456a7f3c21
     path: charts
     helm:
       valuesObject:
         image:
-          tag: v0.2.1
+          tag: b8e4d96
         auth:
           jwt:
             enabled: false

@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/openshift-hyperfleet/hyperfleet-sentinel
-    targetRevision: v0.2.1
+    targetRevision: a7f3c21b8e4d96f0aa12345678abcdef12345678
     path: charts
     helm:
       valuesObject:
