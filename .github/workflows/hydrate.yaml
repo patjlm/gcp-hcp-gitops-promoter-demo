@@ -60,22 +60,42 @@ jobs:
             "production/prod-3 us-central1"
           )
 
-          # Find the most specific kustomization dir for an app/env/sector/region combination
-          find_kust_dir() {
+          # Build a single app by accumulating patch files from each specificity level.
+          # Generates a temporary kustomization.yaml in-place (paths are relative & downward,
+          # so kustomize security restrictions are satisfied without --load-restrictor).
+          build_app() {
             local cluster_type=$1 app=$2 env=$3 sector=$4 region=$5
-            local base="argocd/config/${cluster_type}/${app}"
-            for candidate in \
-              "${base}/${env}/${sector}/${region}" \
-              "${base}/${env}/${sector}" \
-              "${base}/${env}" \
-              "${base}"; do
-              if [[ -f "${candidate}/kustomization.yaml" ]]; then
-                echo "$candidate"
-                return
-              fi
+            local app_dir="argocd/config/${cluster_type}/${app}"
+            local kust_file="${app_dir}/kustomization.yaml"
+            # Always clean up the generated file, even on failure
+            trap "rm -f '${kust_file}'" RETURN
+
+            # Collect patch*.yaml files from each level: env, env/sector, env/sector/region
+            local patches=()
+            for level_dir in \
+              "${app_dir}/${env}" \
+              "${app_dir}/${env}/${sector}" \
+              "${app_dir}/${env}/${sector}/${region}"; do
+              for pf in "${level_dir}"/patch*.yaml; do
+                [[ -f "$pf" ]] && patches+=("${pf#${app_dir}/}")
+              done
             done
-            echo "ERROR: no kustomization.yaml found for ${cluster_type}/${app}" >&2
-            return 1
+
+            # Generate kustomization.yaml in the app dir
+            {
+              echo "apiVersion: kustomize.config.k8s.io/v1beta1"
+              echo "kind: Kustomization"
+              echo "resources:"
+              echo "  - ${app}.yaml"
+              if [[ ${#patches[@]} -gt 0 ]]; then
+                echo "patches:"
+                for p in "${patches[@]}"; do
+                  echo "  - path: ${p}"
+                done
+              fi
+            } > "$kust_file"
+
+            kustomize build "$app_dir"
           }
 
           git config user.name "github-actions[bot]"
@@ -106,12 +126,12 @@ jobs:
                 echo "  Building ${CLUSTER_TYPE}/${REGION}..."
                 for APP_DIR in argocd/config/${CLUSTER_TYPE}/*/; do
                   APP=$(basename "$APP_DIR")
-                  # Skip non-app entries (values.yaml is a file, not a dir)
-                  [[ -f "${APP_DIR}/kustomization.yaml" ]] || continue
+                  # Detect app dirs by the presence of {app}.yaml
+                  [[ -f "${APP_DIR}/${APP}.yaml" ]] || continue
 
-                  KUST_DIR=$(find_kust_dir "$CLUSTER_TYPE" "$APP" "$ENV" "$SECTOR" "$REGION")
-                  echo "    kustomize build ${KUST_DIR} → templates/${APP}.yaml"
-                  kustomize build "${KUST_DIR}" > "${TMPL_DIR}/${APP}.yaml"
+                  echo "    build ${APP} → templates/${APP}.yaml"
+                  build_app "$CLUSTER_TYPE" "$APP" "$ENV" "$SECTOR" "$REGION" \
+                    > "${TMPL_DIR}/${APP}.yaml"
                 done
 
                 # Generate Chart.yaml
