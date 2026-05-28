@@ -1,0 +1,5 @@
+apiVersion: v2
+name: management-cluster-us-central1
+description: ArgoCD applications for management-cluster in stage/main/us-central1
+type: application
+version: 0.1.0
