@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  name: hyperfleet-hc-adapter
+  namespace: argocd
+spec:
+  destination:
+    namespace: hyperfleet
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    helm:
+      valuesObject:
+        projectId: '{{ .Values.project_id }}'
+        pubsub:
+          subscription: hyperfleet-cluster-events-hc-adapter
+        region: '{{ .Values.region }}'
+        serviceAccount:
+          annotations:
+            iam.gke.io/gcp-service-account: hc-adapter@{{ .Values.project_id }}.iam.gserviceaccount.com
+    path: helm/charts/hyperfleet-hc-adapter
+    repoURL: '{{ .Values.git_repo }}'
+    targetRevision: '{{ .Values.git_revision }}'
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

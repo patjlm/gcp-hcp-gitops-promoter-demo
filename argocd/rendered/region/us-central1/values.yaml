@@ -1,0 +1,15 @@
+# Values template for region cluster applications.
+# These values are injected at deploy time via the root ApplicationSet,
+# sourcing from Terraform outputs stored in Secret Manager (via External Secrets).
+environment: ""
+shortenv: ""
+sector: ""
+infra_id: ""
+region: ""
+global_project_id: ""
+region_project_id: ""
+project_id: ""
+git_repo: ""
+git_revision: ""
+cluster_name: ""
+hc_dns_parent_domain: ""

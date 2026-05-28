@@ -1,0 +1,39 @@
+name: Fake Deploy
+
+on:
+  push:
+    branches:
+      - 'environment/**'
+
+permissions:
+  statuses: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect sector from branch
+        id: detect
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/environment/}"
+          echo "sector=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Simulate deployment
+        run: |
+          echo "Deploying sector: ${{ steps.detect.outputs.sector }}"
+          echo "Commit: ${{ github.sha }}"
+          sleep 5
+          echo "Deployment complete."
+
+      - name: Report deployment success
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "/repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state=success \
+            -f context=deploy \
+            -f description="Deployment of ${{ steps.detect.outputs.sector }} succeeded"

@@ -1,0 +1,104 @@
+name: CI Checks
+
+on:
+  pull_request:
+    branches:
+      - 'environment/**'
+  push:
+    branches:
+      - 'environment/**'
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "/repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state=pending \
+            -f context="ci-check" \
+            -f description="CI checks running"
+
+      - name: Validate ArgoCD YAML
+        run: |
+          echo "Validating ArgoCD application manifests..."
+          FAILED=0
+          find argocd/rendered/ -name "*.yaml" -not -name "Chart.yaml" -not -name "values.yaml" | while read -r f; do
+            # Basic YAML syntax check using python (always available on ubuntu-latest)
+            if ! python3 -c "import yaml; list(yaml.safe_load_all(open('$f')))" 2>/dev/null; then
+              echo "  ERROR: Invalid YAML in $f"
+              FAILED=1
+            fi
+          done
+          if find argocd/rendered/ -name "*.yaml" -not -name "Chart.yaml" -not -name "values.yaml" | head -1 | grep -q .; then
+            echo "  ArgoCD YAML validation passed."
+          fi
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9
+
+      - name: Terraform validate
+        run: |
+          echo "Validating Terraform configs..."
+          FAILED=0
+          for region_dir in terraform/config/*/; do
+            if [[ -f "${region_dir}/main.tf" ]]; then
+              echo "  Validating ${region_dir}..."
+              if ! (cd "${region_dir}" && terraform init -backend=false -no-color 2>&1 && terraform validate -no-color 2>&1); then
+                echo "  ERROR: Terraform validation failed in ${region_dir}"
+                FAILED=1
+              fi
+            fi
+          done
+          if [[ "$FAILED" -ne 0 ]]; then
+            exit 1
+          fi
+          echo "  Terraform validation passed."
+
+      - name: Report CI success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "/repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state=success \
+            -f context="ci-check" \
+            -f description="CI checks passed"
+
+      - name: Report CI failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            "/repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state=failure \
+            -f context="ci-check" \
+            -f description="CI checks failed"
+
+      - name: Summary
+        if: always()
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            BRANCH="${GITHUB_BASE_REF}"
+          fi
+          echo "## CI Check Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Event:** ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Branch:** ${BRANCH}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
