@@ -3,7 +3,7 @@ kind: Kustomization
 # Overlay: adds image override for the integration environment.
 # Mirrors the real gcp-hcp-infra/argocd/config/management-cluster/hypershift/integration/override.yaml pattern.
 resources:
-  - ..
+  - ../hypershift.yaml
 patches:
   - path: hypershift-patch.yaml
     target:
