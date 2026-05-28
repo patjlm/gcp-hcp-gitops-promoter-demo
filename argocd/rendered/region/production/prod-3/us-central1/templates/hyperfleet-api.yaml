@@ -17,12 +17,12 @@ spec:
           jwt:
             enabled: false
         image:
-          tag: b8e4d96
+          tag: c3f7a12
         postgresql:
           enabled: true
     path: charts
     repoURL: https://github.com/openshift-hyperfleet/hyperfleet-api
-    targetRevision: b8e4d96f0aa1234567890abcdef123456a7f3c21
+    targetRevision: c3f7a12e9b0d45678901bcdef234567890d8e4f5
   syncPolicy:
     automated:
       prune: true
