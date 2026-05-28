@@ -53,7 +53,7 @@ jobs:
         run: |
           echo "Validating Terraform configs..."
           FAILED=0
-          for region_dir in terraform/config/*/; do
+          for region_dir in terraform/config/*/*/*/; do
             if [[ -f "${region_dir}/main.tf" ]]; then
               echo "  Validating ${region_dir}..."
               if ! (cd "${region_dir}" && terraform init -backend=false -no-color 2>&1 && terraform validate -no-color 2>&1); then
